@@ -1,46 +1,50 @@
 # server.py
 import asyncio
 import websockets
+import json
+import time
+import ssl
+# Import the http library from websockets
+from websockets import http
 
-# This set will store all connected clients
-connected_clients = set()
+# --- Game Constants and Game Class remain the same ---
+# ...
 
-async def handler(websocket, path):
+async def health_check(path):
     """
-    Handles a new client connection.
+    A simple HTTP health check endpoint.
+    Render will hit this URL to see if the server is alive.
     """
-    # Add the new client to our set of connected clients
-    connected_clients.add(websocket)
-    print(f"New client connected! Total clients: {len(connected_clients)}")
-    
-    try:
-        # Listen for messages from this client
-        async for message in websocket:
-            print(f"Received message from a client: {message}")
-            
-            # --- This is where your game logic would go ---
-            # 1. Parse the message (e.g., "PLAY_CARD,epstein,100,200")
-            # 2. Update the authoritative game state on the server.
-            # 3. Create a new state packet to send back.
-            
-            # Broadcast the message to all other clients
-            # (In a real game, you would send a processed game state update)
-            for client in connected_clients:
-                if client != websocket: # Don't send the message back to the sender
-                    await client.send(f"Another player sent: {message}")
-
-    except websockets.ConnectionClosed:
-        print("A client disconnected.")
-    finally:
-        # Remove the client when they disconnect
-        connected_clients.remove(websocket)
+    if path == "/health":
+        # Return a simple HTTP 200 OK response
+        return http.Response(status_code=200, headers={"Content-Type": "text/plain"}, body=b"OK")
 
 async def main():
-    # IMPORTANT: Host on 'localhost' for safe local development.
-    # DO NOT use your public IP address here.
-    async with websockets.serve(handler, "localhost", 8765):
-        print("Server started on ws://localhost:8765")
-        await asyncio.Future()  # run forever
+    """Starts the WebSocket server with SSL and a health check."""
+    ssl_context = None # Set to None initially
+    # The SSL logic can remain the same if you have certificates
+    try:
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ssl_context.load_cert_chain("path/to/your/fullchain.pem", "path/to/your/privkey.pem")
+        print("SSL certificates loaded.")
+    except FileNotFoundError:
+        # Render provides its own SSL, so we don't need local certs.
+        # This will allow the server to run without crashing.
+        ssl_context = None
+        print("SSL certificates not found. Running without local SSL (Render will provide it).")
+
+    # Add the 'process_request' argument to handle the health check
+    async with websockets.serve(
+        handler, 
+        "0.0.0.0", 
+        42069, 
+        ssl=ssl_context,
+        process_request=health_check
+    ):
+        print("Server started on ws://0.0.0.0:42069 (or wss:// if SSL is handled by host)")
+        await asyncio.Future()
+
+# ... (rest of the file is the same) ...
 
 if __name__ == "__main__":
     asyncio.run(main())
