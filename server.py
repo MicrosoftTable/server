@@ -92,11 +92,12 @@ class Game:
             
             await asyncio.sleep(1/30) # Aim for 30 updates per second
 
-async def health_check(path):
-    """A simple HTTP health check endpoint for Render."""
-    if path == "/health":
-        return http.Response(status_code=200, headers={"Content-Type": "text/plain"}, body=b"OK")
-
+async def health_check(path, request_headers): # Add request_headers here
+    """A simple HTTP health check endpoint for Render."""
+    if path == "/health":
+        return http.Response(status_code=200, headers={"Content-Type": "text/plain"}, body=b"OK")
+    # If the path isn't '/health', the function implicitly returns None,
+    # and the websockets library proceeds with the connection handshake.
 async def matchmaking(websocket):
     """Handles putting players into a game room."""
     waiting_players.append(websocket)
@@ -149,3 +150,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
